@@ -20,6 +20,7 @@ func SetupRoutes(app *fiber.App) {
 	linksAPI.Get("/mappings", handlers.GetAllShortLinks)
 	linksAPI.Delete("/:shortURL", handlers.DeleteLink)
 	linksAPI.Get("/:shortURL", handlers.GetLinkById)
+	linksAPI.Get("/:shortURL/stats", handlers.GetStats)  // ← add this
 
 	userAPI := api.Group("/user")
 	userAPI.Use(middleware.AuthGuard)

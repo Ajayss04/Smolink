@@ -51,3 +51,27 @@ func GetLongURL(shortURL string) (string, error) {
 	}
 	return result.Val(), nil
 }
+
+func IncrementClickCount(shortURL string) error {
+    result := rdb.Incr(rctx, "clicks:"+shortURL)
+    if result.Err() != nil {
+        fmt.Println(result.Err())
+        return result.Err()
+    }
+    return nil
+}
+
+func GetClickCount(shortURL string) (int64, error) {
+    result := rdb.Get(rctx, "clicks:"+shortURL)
+    if result.Err() == redis.Nil {
+        return 0, nil // key doesn't exist yet = 0 clicks
+    }
+    if result.Err() != nil {
+        return 0, result.Err()
+    }
+    count, err := result.Int64()
+    if err != nil {
+        return 0, err
+    }
+    return count, nil
+}

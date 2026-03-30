@@ -94,5 +94,22 @@ func RedirectToLongLink(c *fiber.Ctx) error {
 		fmt.Println(err.Error())
 		return c.Redirect("/404")
 	}
+	database.IncrementClickCount(shortURL)
 	return c.Redirect(longURL)
+}
+
+func GetStats(c *fiber.Ctx) error {
+    shortURL := c.Params("shortURL")
+    count, err := database.GetClickCount(shortURL)
+    if err != nil {
+        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+            "status":  "error",
+            "message": "Cannot get stats",
+        })
+    }
+    return c.JSON(fiber.Map{
+        "status":     "success",
+        "short_url":  shortURL,
+        "click_count": count,
+    })
 }
