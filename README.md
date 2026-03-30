@@ -44,16 +44,16 @@ Client Request
 ### Public
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/shrinkr/:shortURL` | Redirect to long URL |
+| `GET` | `/smolink/:shortURL` | Redirect to long URL |
 
 ### Protected (requires JWT)
 | Method | Endpoint | Description |
 |---|---|---|
-| `POST` | `/shrinkr/links/addURL` | Create a short URL |
-| `GET` | `/shrinkr/links/mappings` | Get all links for user |
-| `GET` | `/shrinkr/links/:shortURL` | Get info for one link |
-| `GET` | `/shrinkr/links/:shortURL/stats` | Get click count for a link |
-| `DELETE` | `/shrinkr/links/:shortURL` | Delete a link |
+| `POST` | `/smolink/links/addURL` | Create a short URL |
+| `GET` | `/smolink/links/mappings` | Get all links for user |
+| `GET` | `/smolink/links/:shortURL` | Get info for one link |
+| `GET` | `/smolink/links/:shortURL/stats` | Get click count for a link |
+| `DELETE` | `/smolink/links/:shortURL` | Delete a link |
 
 ## Getting Started
 

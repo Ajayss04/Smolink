@@ -24,7 +24,7 @@ type UserInfo struct {
 func Base(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusAccepted).JSON(fiber.Map{
 		"status":  "success",
-		"message": "Welcome to Shrinkr",
+		"message": "Welcome to smolink",
 	})
 }
 

@@ -8,7 +8,7 @@ import (
 
 // SetupRoutes sets up all routes for the application
 func SetupRoutes(app *fiber.App) {
-	api := app.Group("/shrinkr")
+	api := app.Group("/smolink")
 	api.Get("/", handlers.Base)
 	api.Get("/login", handlers.Login)
 	api.Get("/token", handlers.GetJWT)

@@ -28,7 +28,7 @@ func ConnectMongo() {
 	if err := client.Database("admin").RunCommand(context.TODO(), bson.D{{"ping", 1}}).Err(); err != nil {
 		fmt.Println(err)
 	}
-	mdb = client.Database("shrinkr")
+	mdb = client.Database("smolink")
 	fmt.Println("Connected to MongoDB")
 }
 
