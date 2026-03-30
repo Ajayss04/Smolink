@@ -1,2 +1,26 @@
-*.env
-tmp
+# Environment variables - NEVER commit these
+.env
+
+# Go build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+dist/
+
+# Go test artifacts
+*.test
+*.out
+
+# Dependency directories
+vendor/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
