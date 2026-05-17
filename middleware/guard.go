@@ -8,25 +8,35 @@ import (
 )
 
 func AuthGuard(c *fiber.Ctx) error {
-	tokenString := c.Get("Authorization")
+	// 1. Read the token directly from the "jwt" cookie
+	tokenString := c.Cookies("jwt")
+
 	if tokenString == "" {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"status":  "error",
-			"message": "Unauthorized",
+			"message": "Unauthorized. Please login.",
 		})
 	}
-	tokenString = tokenString[7:]
+
+	// 2. Parse and validate the token
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		return []byte(config.Config("JWT_SECRET")), nil
 	})
+
 	if err != nil || !token.Valid {
+		// If the token is expired or invalid, clear the cookie and reject
+		c.ClearCookie("jwt")
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"status":  "error",
-			"message": "Please login again",
+			"message": "Session expired. Please login again.",
 		})
 	}
+
+	// 3. Extract claims and pass the email to the next handler
 	claims := token.Claims.(jwt.MapClaims)
 	email := claims["email"].(string)
+	
 	c.Request().Header.Set("Email", email)
+	
 	return c.Next()
 }

@@ -21,7 +21,13 @@ func main() {
 
 	// Middleware
 	app.Use(logger.New())
-	app.Use(cors.New())
+
+	app.Use(cors.New(cors.Config{
+		AllowOrigins:     "https://your-frontend-domain.vercel.app, http://127.0.0.1:5500", // Add your local testing & live frontend URLs
+		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
+		AllowMethods:     "GET, POST, HEAD, PUT, DELETE, PATCH",
+		AllowCredentials: true, // Critical for receiving and transmitting cookies
+	}))
 
 	// Routes
 	routes.SetupRoutes(app)

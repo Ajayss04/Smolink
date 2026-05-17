@@ -4,38 +4,76 @@ import (
 	"api/database"
 	"api/types"
 	"fmt"
+	"math/rand"
 
 	"github.com/gofiber/fiber/v2"
 )
 
+// Helper function to generate a random 6-character short link
+func generateShortKey(length int) string {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	b := make([]byte, length)
+	for i := range b {
+		b[i] = charset[rand.Intn(len(charset))]
+	}
+	return string(b)
+}
+
 func AddMapping(c *fiber.Ctx) error {
 	username := c.Request().Header.Peek("Email")
 	link := new(types.LinkDTO)
-	c.BodyParser(link)
-	error := link.Validate()
-	if error != nil {
+
+	// 1. Properly catch body parsing errors
+	if err := c.BodyParser(link); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": error.Error(),
+			"message": "Invalid request payload",
 		})
 	}
+
+	// 2. AUTO-GENERATE short URL if the user left it blank
+	if link.ShortURL == "" {
+		link.ShortURL = generateShortKey(6) 
+	}
+
+	// 3. Validate (now that ShortURL is guaranteed to exist)
+	validationErr := link.Validate()
+	if validationErr != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": validationErr.Error(),
+		})
+	}
+
+	// 4. Store in MongoDB
 	err := database.AddURL(link, string(username))
 	if err != nil {
-		err := err.(*types.CustomError)
-		return c.Status(err.StatusCode()).JSON(fiber.Map{
-			"status":  err.StatusCode(),
-			"message": err.Error(),
+		// Type assertion to extract CustomError status code safely
+		if customErr, ok := err.(*types.CustomError); ok {
+			return c.Status(customErr.StatusCode()).JSON(fiber.Map{
+				"status":  customErr.StatusCode(),
+				"message": customErr.Error(),
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"status":  500,
+			"message": "Internal server error",
 		})
 	}
+
+	// 5. Cache in Redis
 	if err := database.StoreMapping(link); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"status":  "error",
-			"message": "Cannot store mapping",
+			"message": "Cannot store mapping in cache",
 		})
 	}
-	fmt.Println("Mapping stored")
+
+	fmt.Println("Mapping stored:", link.ShortURL)
+	
+	// 6. Return the generated short URL back to the client
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"status":  "success",
-		"message": "Mapping stored",
+		"status":    "success",
+		"message":   "Mapping stored",
+		"short_url": link.ShortURL,
 	})
 }
 
@@ -87,15 +125,29 @@ func GetLinkById(c *fiber.Ctx) error {
 }
 
 func RedirectToLongLink(c *fiber.Ctx) error {
-	shortURL := c.Params("shortURL")
-	longURL, err := database.GetLongURL(shortURL)
-	if err != nil {
-		fmt.Printf(longURL)
-		fmt.Println(err.Error())
-		return c.Redirect("/404")
-	}
-	database.IncrementClickCount(shortURL)
-	return c.Redirect(longURL)
+    shortURL := c.Params("shortURL")
+    
+    // 1. Try Redis first
+    longURL, err := database.GetLongURL(shortURL)
+    
+    if err != nil || longURL == "" {
+        // 2. Fallback to MongoDB
+        longURL, err = database.GetLongURLFromMongo(shortURL)
+        if err != nil || longURL == "" {
+            return c.Redirect("/404")
+        }
+        
+        // 3. Restore to Redis so the next click is fast
+        // (Re-creating the DTO just for Redis storage)
+        database.StoreMapping(&types.LinkDTO{
+            ShortURL: shortURL,
+            LongURL:  longURL,
+        })
+    }
+    
+    // 4. Track click and redirect
+    database.IncrementClickCount(shortURL)
+    return c.Redirect(longURL)
 }
 
 func GetStats(c *fiber.Ctx) error {

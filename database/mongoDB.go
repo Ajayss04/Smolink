@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -21,13 +22,19 @@ var (
 func ConnectMongo() {
 	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
 	opts := options.Client().ApplyURI(config.Config("MONGO_URL")).SetServerAPIOptions(serverAPI)
-	client, err := mongo.Connect(context.TODO(), opts)
+	
+	// Use '=' instead of ':=' to assign to the global 'client' variable
+	var err error
+	client, err = mongo.Connect(context.TODO(), opts)
 	if err != nil {
-		fmt.Println(err)
+		// Use log.Fatal to stop execution immediately if the DB is unreachable
+		log.Fatalf("Critical: Failed to connect to MongoDB instance: %v", err)
 	}
+
 	if err := client.Database("admin").RunCommand(context.TODO(), bson.D{{"ping", 1}}).Err(); err != nil {
-		fmt.Println(err)
+		log.Fatalf("Critical: Failed to ping MongoDB admin database: %v", err)
 	}
+
 	mdb = client.Database("smolink")
 	fmt.Println("Connected to MongoDB")
 }
@@ -138,4 +145,15 @@ func GetLinkInfo(shortURL string, username string) (*types.LinkInfo, error) {
 		return nil, err
 	}
 	return &result, nil
+}
+
+func GetLongURLFromMongo(shortURL string) (string, error) {
+    collection := mdb.Collection("links")
+    filter := bson.D{{"key", shortURL}}
+    var result types.LinkInfo
+    err := collection.FindOne(context.Background(), filter).Decode(&result)
+    if err != nil {
+        return "", err
+    }
+    return result.LongURL, nil
 }

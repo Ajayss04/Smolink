@@ -32,11 +32,9 @@ func Login(c *fiber.Ctx) error {
 	state := uuid.New().String()
 	authConfig := config.AuthConf()
 	url := authConfig.AuthCodeURL(state, oauth2.AccessTypeOffline)
-	return c.Status(200).JSON(fiber.Map{
-		"status": "success",
-		"url":    url,
-		"state":  state,
-	})
+	
+	// Simply redirect the user directly to the Google login page
+	return c.Redirect(url)
 }
 
 func GetJWT(c *fiber.Ctx) error {
@@ -72,12 +70,16 @@ func GetJWT(c *fiber.Ctx) error {
 		"email": userInfo.Email,
 	}
 	tokenString, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(config.Config("JWT_SECRET")))
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON("Cannot create JWT token")
-	}
-	return c.Status(200).JSON(fiber.Map{
-		"status": "success",
-		"token":  tokenString,
-		"name":   userInfo.Name,
-	})
+	c.Cookie(&fiber.Cookie{
+        Name:     "jwt",
+        Value:    tokenString,
+        Expires:  time.Now().Add(24 * time.Hour),
+        HTTPOnly: true,
+        Secure:   false, // Set to true if using HTTPS in production
+        Path:     "/",
+    })
+
+    // Redirect to your frontend dashboard (adjust URL as needed)
+    return c.Redirect("http://localhost:3000/docs")
+	
 }
