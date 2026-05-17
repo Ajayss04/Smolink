@@ -80,6 +80,6 @@ func GetJWT(c *fiber.Ctx) error {
     })
 
     // Redirect to your frontend dashboard (adjust URL as needed)
-    return c.Redirect("http://localhost:3000/docs")
+    return c.Redirect("https://smolink-frontend.vercel.app")
 	
 }
