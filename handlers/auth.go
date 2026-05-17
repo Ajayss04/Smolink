@@ -6,7 +6,7 @@ import (
 	"api/types"
 	"context"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -41,6 +41,7 @@ func GetJWT(c *fiber.Ctx) error {
 	code := c.Query("code")
 	authConf := config.AuthConf()
 	ctx := context.Background()
+	
 	token, err := authConf.Exchange(ctx, code)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{
@@ -48,15 +49,25 @@ func GetJWT(c *fiber.Ctx) error {
 			"message": "Cannot exchange code for token",
 		})
 	}
+	
 	client := authConf.Client(ctx, token)
 	userData, err := client.Get("https://www.googleapis.com/oauth2/v3/userinfo")
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON("Cannot get user data")
 	}
 	defer userData.Body.Close()
-	body, err := ioutil.ReadAll(userData.Body)
+	
+	// Updated from ioutil.ReadAll to io.ReadAll
+	body, err := io.ReadAll(userData.Body)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON("Cannot read user data")
+	}
+
 	var userInfo UserInfo
 	err = json.Unmarshal(body, &userInfo)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON("Cannot parse user data")
+	}
 
 	var user types.User
 	user.Username = userInfo.Email
@@ -66,20 +77,27 @@ func GetJWT(c *fiber.Ctx) error {
 	if err != nil {
 		database.RegisterUser(&user)
 	}
+
 	claims := jwt.MapClaims{
 		"email": userInfo.Email,
 	}
-	tokenString, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(config.Config("JWT_SECRET")))
-	c.Cookie(&fiber.Cookie{
-        Name:     "jwt",
-        Value:    tokenString,
-        Expires:  time.Now().Add(24 * time.Hour),
-        HTTPOnly: true,
-        Secure:   false, // Set to true if using HTTPS in production
-        Path:     "/",
-    })
-
-    // Redirect to your frontend dashboard (adjust URL as needed)
-    return c.Redirect("https://smolink-frontend.vercel.app")
 	
+	tokenString, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(config.Config("JWT_SECRET")))
+	// Add this error check back in!
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON("Cannot create JWT token")
+	}
+
+	c.Cookie(&fiber.Cookie{
+		Name:     "jwt",
+		Value:    tokenString,
+		Expires:  time.Now().Add(24 * time.Hour),
+		HTTPOnly: true,
+		Secure:   true,     // MUST be true for cross-domain cookies (requires HTTPS)
+		SameSite: "None",   // Explicitly allows the cookie to be sent across different domains
+		Path:     "/",
+	})
+	
+	// Redirect to your frontend dashboard
+	return c.Redirect("https://smolink-frontend.vercel.app")
 }
