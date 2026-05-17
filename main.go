@@ -23,10 +23,11 @@ func main() {
 	app.Use(logger.New())
 
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     "https://your-frontend-domain.vercel.app, http://127.0.0.1:5500", // Add your local testing & live frontend URLs
-		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
+		// MUST be exactly your Vercel URL without a slash at the end
+		AllowOrigins:     "https://smolink-frontend.vercel.app", 
+		AllowHeaders:     "Origin, Content-Type, Accept",
 		AllowMethods:     "GET, POST, HEAD, PUT, DELETE, PATCH",
-		AllowCredentials: true, // Critical for receiving and transmitting cookies
+		AllowCredentials: true,
 	}))
 
 	// Routes
