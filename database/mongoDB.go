@@ -67,27 +67,47 @@ func CheckIfShortURLExists(shortURL string) bool {
 
 func AddURL(link *types.LinkDTO, username string) error {
 	doesExist := CheckIfShortURLExists(link.ShortURL)
-	if !doesExist {
-		collection := mdb.Collection("links")
-		var linkDoc types.LinkInfo
-		linkDoc.Key = link.ShortURL
-		linkDoc.LongURL = link.LongURL
-		linkDoc.Description = link.Description
-		linkDoc.CreatedBy = username
-		linkDoc.Created = time.Now().Format("2006-01-02 15:04:05")
-		linkDoc.Expiration = link.Expiration
-		// TODO
-		//  also add checks for passcode and clicks and expiration
-		_, err := collection.InsertOne(context.Background(), linkDoc)
-		if err != nil {
-			fmt.Println(err)
-		}
-		fmt.Println("Link added")
-		return nil
-	} else {
+	if doesExist {
 		fmt.Println("Link already exists")
-		return &types.CustomError{Message: "Link already exists", Status: 403}
+		// 409 Conflict is the standard status code for duplicate entries
+		return &types.CustomError{Message: "Link already exists", Status: 409}
 	}
+
+	// Make sure this matches your actual MongoDB collection name!
+	collection := mdb.Collection("mappings")
+	
+	var linkDoc types.LinkInfo
+	linkDoc.Key = link.ShortURL
+	linkDoc.LongURL = link.LongURL
+	linkDoc.Description = link.Description
+	linkDoc.CreatedBy = username
+	linkDoc.Created = time.Now().Format("2006-01-02 15:04:05")
+	linkDoc.Expiration = link.Expiration
+	linkDoc.Clicks = 0 // Explicitly initialize the counter
+
+	// 1. Insert the new link document
+	_, err := collection.InsertOne(context.Background(), linkDoc)
+	if err != nil {
+		fmt.Println("Database insert error:", err)
+		// Actually return the error so the API handler knows it failed
+		return &types.CustomError{Message: "Failed to save to database", Status: 500}
+	}
+
+	// 2. Update the user's total link count
+	userCollection := mdb.Collection("users")
+	_, userErr := userCollection.UpdateOne(
+		context.Background(),
+		bson.M{"username": username},
+		bson.M{"$inc": bson.M{"links": 1}},
+	)
+	
+	if userErr != nil {
+		// We log this, but don't fail the whole request since the link was still successfully created
+		fmt.Println("Warning: Failed to increment user link count:", userErr)
+	}
+
+	fmt.Println("Link added successfully")
+	return nil
 }
 
 func GetUser(email string) (*types.User, error) {
@@ -160,11 +180,13 @@ func GetLongURLFromMongo(shortURL string) (string, error) {
 }
 
 func IncrementClick(key string) {
-    // Note: Make sure "Client" matches the exact name of your global mongo variable in this file!
     collection := client.Database("smolink").Collection("mappings")
     
+    // Increment the 'clicks' field by 1
     update := bson.M{"$inc": bson.M{"clicks": 1}}
     
-    // Fire and forget, no need to return errors
-    collection.UpdateOne(context.TODO(), bson.M{"key": key}, update)
+    _, err := collection.UpdateOne(context.TODO(), bson.M{"key": key}, update)
+    if err != nil {
+        fmt.Println("Failed to increment click for", key, ":", err)
+    }
 }

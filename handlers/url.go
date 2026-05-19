@@ -146,7 +146,7 @@ func RedirectToLongLink(c *fiber.Ctx) error {
     }
     
     // 4. Track click and redirect
-    database.IncrementClickCount(shortURL)
+    go database.IncrementClickCount(shortURL)
     return c.Redirect(longURL)
 }
 
