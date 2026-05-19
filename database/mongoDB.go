@@ -1,6 +1,7 @@
 package database
 
 import (
+	
 	"api/config"
 	"api/types"
 	"context"
@@ -156,4 +157,14 @@ func GetLongURLFromMongo(shortURL string) (string, error) {
         return "", err
     }
     return result.LongURL, nil
+}
+
+func IncrementClick(key string) {
+    // Note: Make sure "Client" matches the exact name of your global mongo variable in this file!
+    collection := client.Database("smolink").Collection("mappings")
+    
+    update := bson.M{"$inc": bson.M{"clicks": 1}}
+    
+    // Fire and forget, no need to return errors
+    collection.UpdateOne(context.TODO(), bson.M{"key": key}, update)
 }
